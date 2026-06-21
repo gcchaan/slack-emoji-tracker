@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  slack-emoji-tracker
+
+Parameters:
+  SlackTokenSsmPath:
+    Type: String
+    Default: "slack-emoji-tracker/slack-bot-user-oauth-token"
+    Description: "SSM Parameter Store path for Slack `Bot User Oauth Token`. This value should not start with a forward slash (/)."
+  SlackChannelId:
+    Type: String
+    Description: "ID of the Slack channel to post messages to. You can find the channel ID by opening the channel in Slack and looking at the URL. It will be in the format `https://app.slack.com/client/T12345678/C1234567890` where `C1234567890` is the channel ID."
+  EmojiCacheKey:
+    Type: String
+    Default: "emoji-cache.json"
+    Description: "S3 object key for storing the emoji cache."
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 7
+    MemorySize: 128
+
+    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
+    LoggingConfig:
+      LogFormat: JSON
+Resources:
+  EmojiCacheBucket:
+    Type: AWS::S3::Bucket
+  EmojiTrackerFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: app/
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+      - arm64
+      Environment:
+        Variables:
+          SLACK_TOKEN_SSM_PATH: !Sub "/${SlackTokenSsmPath}"
+          SLACK_CHANNEL_ID: !Ref SlackChannelId
+          S3_BUCKET_NAME: !Ref EmojiCacheBucket
+          S3_OBJECT_KEY: !Ref EmojiCacheKey
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref SlackTokenSsmPath
+        - S3CrudPolicy:
+            BucketName: !Ref EmojiCacheBucket
+      Events:
+        ScheduleEvent:
+          Type: ScheduleV2
+          Properties:
+            Description: "Trigger every hour from 9:00 to 17:00 JST"
+            ScheduleExpression: "cron(0 9-17 * * ? *)"
+            ScheduleExpressionTimezone: Asia/Tokyo
+            FlexibleTimeWindow:
+              Mode: FLEXIBLE
+              MaximumWindowInMinutes: 60
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  EmojiTrackerFunction:
+    Description: EmojiTracker Lambda Function ARN
+    Value: !GetAtt EmojiTrackerFunction.Arn
+  EmojiTrackerFunctionIamRole:
+    Description: Implicit IAM Role created for EmojiTracker function
+    Value: !GetAtt EmojiTrackerFunctionRole.Arn
+  EmojiCacheBucket:
+    Description: S3 bucket to cache emoji data
+    Value: !Ref EmojiCacheBucket
