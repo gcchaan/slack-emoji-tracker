@@ -1,5 +1,14 @@
 # slack-emoji-tracker
 
+## Overview
+
+This is a serverless application built with **Go** and **AWS SAM** that automatically tracks changes to your Slack workspace's custom emojis. 
+
+### How it works:
+1. **Trigger:** An EventBridge Scheduler triggers the Lambda function hourly during daytime.
+2. **Fetch & Compare:** It fetches the current emoji list via the Slack API and compares it with the previous state cached in **Amazon S3**.
+3. **Notify:** If any emojis were added or removed, it sends a nicely formatted summary message to your designated Slack channel.
+
 ## Requirements
 
 * AWS CLI already configured with Administrator permission
