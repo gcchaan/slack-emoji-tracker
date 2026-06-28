@@ -59,6 +59,11 @@ Resources:
             FlexibleTimeWindow:
               Mode: FLEXIBLE
               MaximumWindowInMinutes: 60
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${EmojiTrackerFunction}"
+      RetentionInDays: 7
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
